@@ -1,23 +1,26 @@
-/* eslint-disable @typescript-eslint/no-misused-promises */
-/* eslint-disable @typescript-eslint/require-await */
 import { Command, CommandRunner } from 'nest-commander';
 import { IrcService } from '../irc/irc.service';
 import { AiService } from '../ai/ai.service';
+import { ConfigService } from '@nestjs/config';
 
 @Command({ name: 'start', description: 'Start the IRC bot' })
 export class BotCommand extends CommandRunner {
+  private readonly nick: string;
   constructor(
     private readonly irc: IrcService,
     private readonly ai: AiService,
+    private readonly config: ConfigService,
   ) {
     super();
+    this.nick = this.config.get<string>('IRC_NICK', 'SiTi^Oke');
   }
 
+  // eslint-disable-next-line @typescript-eslint/require-await
   async run() {
-    this.irc.onMessage(async (event) => {
+    this.irc.onMessage((event) => {
       const msg = event.message;
 
-      if (msg === 'SiTi^Oke reset') {
+      if (msg === this.nick + ' reset') {
         if (event.nick === 'Bayangan') {
           this.ai.clearHistory(event.target);
           this.irc.send(
@@ -33,20 +36,20 @@ export class BotCommand extends CommandRunner {
         return;
       }
       // Respond to messages prefixed with bot Nick (e.g., "SiTi^Oke ")
-      if (!msg.startsWith('SiTi^Oke ')) return;
+      if (!msg.startsWith(this.nick)) return;
 
-      const prompt = msg.slice(9).trim();
+      const prompt = msg.slice(this.nick.length).trim();
       if (!prompt) {
         this.irc.send(event.target, '???');
         return;
       }
 
-      const reply = await this.ai.chat(event.target, prompt);
-      // Split long replies into 400-char chunks for IRC
-      const chunks = reply.match(/.{1,400}/g) ?? [];
-      for (const chunk of chunks) {
-        this.irc.send(event.target, chunk);
-      }
+      void this.ai.chat(event.target, prompt).then((reply) => {
+        const chunks = reply.match(/.{1,400}/g) ?? [];
+        for (const chunk of chunks) {
+          this.irc.send(event.target, chunk);
+        }
+      });
     });
   }
 }

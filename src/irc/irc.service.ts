@@ -13,12 +13,12 @@ export class IrcService implements OnModuleInit {
     this.client = new Client();
 
     this.client.connect({
-      host: 'irc.allnetwork.org',
-      port: 6667,
-      tls: false,
-      nick: 'SiTi^Oke',
-      username: 'siti',
-      gecos: 'Tú eres mi corazón',
+      host: this.config.get<string>('IRC_HOST', 'irc.allnetwork.org'),
+      port: this.config.get<number>('IRC_PORT', 6667),
+      tls: this.config.get<string>('IRC_TLS', 'false') === 'true',
+      nick: this.config.get<string>('IRC_NICK', 'SiTi^Oke'),
+      username: this.config.get<string>('IRC_USERNAME', 'siti'),
+      gecos: this.config.get<string>('IRC_REALNAME', 'Tú eres mi corazón'),
     });
 
     this.client.on('registered', () => {
@@ -29,7 +29,7 @@ export class IrcService implements OnModuleInit {
         this.client.say('NickServ', `IDENTIFY ${nickPassword}`);
         this.logger.log('Sent NickServ IDENTIFY');
       }
-      this.client.join('#purwokerto');
+      this.client.join(this.config.get<string>('IRC_CHANNEL', '#purwokerto'));
     });
 
     this.client.on('message', (event) => {
