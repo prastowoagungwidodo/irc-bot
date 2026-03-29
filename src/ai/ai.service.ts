@@ -24,8 +24,14 @@ export class AiService {
   constructor(private readonly config: ConfigService) {
     this.token = this.config.getOrThrow<string>('GITHUB_TOKEN');
     this.model = this.config.get<string>('AI_MODEL', 'gpt-4.1');
-    this.maxTokens = this.config.get<number>('AI_MAX_TOKENS', 200);
-    this.maxHistory = this.config.get<number>('AI_MAX_HISTORY', 100);
+    this.maxTokens = parseInt(
+      this.config.get<string>('AI_MAX_TOKENS', '200'),
+      10,
+    );
+    this.maxHistory = parseInt(
+      this.config.get<string>('AI_MAX_HISTORY', '100'),
+      10,
+    );
     this.systemPrompt = {
       role: 'system',
       content: this.config.get<string>(
