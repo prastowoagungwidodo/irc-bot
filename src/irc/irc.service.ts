@@ -170,6 +170,9 @@ export class IrcService implements OnModuleInit {
     this.client.raw(`MODE ${channel} +b ${nick}!*@*`);
     this.client.raw(`KICK ${channel} ${nick} :${reason}`);
 
+    // Log the kick event
+    void this.db.logUserEvent(channel, nick, UserEventType.KICK, reason);
+
     // Auto-unban after 5 minutes
     setTimeout(
       () => {

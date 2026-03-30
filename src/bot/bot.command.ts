@@ -2,7 +2,7 @@ import { Command, CommandRunner } from 'nest-commander';
 import { IrcService } from '../irc/irc.service';
 import { AiService } from '../ai/ai.service';
 import { ConfigService } from '@nestjs/config';
-import { DatabaseService } from '../database/database.service';
+import { DatabaseService, UserEventType } from '../database/database.service';
 
 @Command({ name: 'start', description: 'Start the IRC bot' })
 export class BotCommand extends CommandRunner {
@@ -125,13 +125,37 @@ export class BotCommand extends CommandRunner {
           .toISOString()
           .replace('T', ' ')
           .slice(0, 19);
-        const where = seen.lastEvent.channel || 'unknown';
+        const where = seen.lastEvent.channel || '';
         const reason = seen.lastEvent.reason
           ? ` (${seen.lastEvent.reason})`
           : '';
+        let eventTypeText = '';
+        let whereText = '';
+        switch (seen.lastEvent.event_type) {
+          case UserEventType.JOIN:
+            eventTypeText = 'masuk';
+            whereText = `di ${where}`;
+            break;
+          case UserEventType.PART:
+            eventTypeText = 'keluar';
+            whereText = `dari ${where}`;
+            break;
+          case UserEventType.KICK:
+            eventTypeText = 'dikeluarin';
+            whereText = `dari ${where}`;
+            break;
+          case UserEventType.QUIT:
+            eventTypeText = 'keluar';
+            whereText = '';
+            break;
+          default:
+            eventTypeText = 'kelihatan';
+            whereText = where ? `di ${where}` : '';
+            break;
+        }
         this.irc.send(
           channel,
-          `${nick} terakhir ${seen.lastEvent.event_type} di ${where} pada ${time}${reason}`,
+          `${nick} terakhir ${eventTypeText} ${whereText} pada ${time}${reason}`,
         );
       }
 
