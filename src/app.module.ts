@@ -7,7 +7,7 @@ import { IrcProtectionService } from './irc/irc-protection.service';
 import { DatabaseModule } from './database/database.module';
 
 @Module({
-  imports: [ConfigModule.forRoot(), DatabaseModule],
+  imports: [ConfigModule.forRoot({ isGlobal: true }), DatabaseModule],
   providers: [IrcService, IrcProtectionService, AiService, BotCommand],
 })
 export class AppModule {}
