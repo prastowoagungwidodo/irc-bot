@@ -75,7 +75,7 @@ export class BotCommand extends CommandRunner {
           this.irc.send(event.nick, '???');
           return;
         }
-        void this.ai.chat(event.nick, prompt).then((reply) => {
+        void this.ai.chat(event.nick, 'Admin: ' + prompt).then((reply) => {
           const chunks = reply.match(/.{1,400}/g) ?? [];
           for (const chunk of chunks) {
             this.irc.send(event.nick, chunk);
@@ -93,12 +93,14 @@ export class BotCommand extends CommandRunner {
         return;
       }
 
-      void this.ai.chat(event.target, prompt).then((reply) => {
-        const chunks = reply.match(/.{1,400}/g) ?? [];
-        for (const chunk of chunks) {
-          this.irc.send(event.target, chunk);
-        }
-      });
+      void this.ai
+        .chat(event.target, event.nick + ': ' + prompt)
+        .then((reply) => {
+          const chunks = reply.match(/.{1,400}/g) ?? [];
+          for (const chunk of chunks) {
+            this.irc.send(event.target, chunk);
+          }
+        });
     });
   }
 
@@ -130,6 +132,12 @@ export class BotCommand extends CommandRunner {
 
   private async handleSeen(channel: string, nick: string): Promise<void> {
     try {
+      // Check if user is currently online in the channel
+      const online = await this.irc.isUserOnline(channel, nick);
+      if (online) {
+        this.irc.send(channel, `${nick} lagi online di ${channel} sekarang~`);
+        return;
+      }
       const seen = await this.db.seenUser(nick);
       if (!seen.lastMessage && !seen.lastEvent) {
         this.irc.send(channel, `Aku belum pernah lihat ${nick} deh~`);

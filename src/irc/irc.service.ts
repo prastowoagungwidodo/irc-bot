@@ -148,6 +148,43 @@ export class IrcService implements OnModuleInit {
     }
   }
 
+  async isUserOnline(channel: string, nick: string): Promise<boolean> {
+    return new Promise<boolean>((resolve) => {
+      const nicks: string[] = [];
+      let settled = false;
+
+      const onRaw = (event: { command: string; params: string[] }) => {
+        // RPL_NAMREPLY: collect nicks
+        if (event.command === '353' && event.params[2] === channel) {
+          const names = event.params[3]
+            .split(' ')
+            .map((n) => n.replace(/^[~&@%+]/, ''));
+          nicks.push(...names);
+        }
+        // RPL_ENDOFNAMES: resolve
+        if (event.command === '366' && event.params[1] === channel) {
+          cleanup();
+          resolve(nicks.includes(nick));
+        }
+      };
+
+      const cleanup = () => {
+        if (settled) return;
+        settled = true;
+        this.client.removeListener('raw', onRaw);
+        clearTimeout(timer);
+      };
+
+      const timer = setTimeout(() => {
+        cleanup();
+        resolve(false);
+      }, 5000);
+
+      this.client.on('raw', onRaw);
+      this.client.raw(`NAMES ${channel}`);
+    });
+  }
+
   private handleJoinFlood(channel: string, nick: string) {
     if (nick === this.botNick) return;
 
