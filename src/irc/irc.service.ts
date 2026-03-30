@@ -31,6 +31,7 @@ export class IrcService implements OnModuleInit {
   private readonly logger = new Logger(IrcService.name);
   private client!: Client;
   private botNick!: string;
+  private master!: string;
 
   constructor(
     private readonly config: ConfigService,
@@ -41,6 +42,7 @@ export class IrcService implements OnModuleInit {
   onModuleInit() {
     this.client = new Client();
     this.botNick = this.config.get<string>('IRC_NICK', 'SiTi^Oke');
+    this.master = this.config.get<string>('IRC_ADMIN_NICK', 'Bayangan');
 
     this.client.connect({
       host: this.config.get<string>('IRC_HOST', 'irc.allnetwork.org'),
@@ -91,6 +93,11 @@ export class IrcService implements OnModuleInit {
     this.client.on('message', (raw: unknown) => {
       const event = raw as IrcMessageEvent;
       this.logger.log(`[${event.target}] ${event.nick}: ${event.message}`);
+
+      // Ignore all private message except from admin / master
+      if (event.target === this.botNick && event.nick !== this.master) {
+        return;
+      }
 
       // Log to database (only channel messages)
       if (event.target.startsWith('#')) {

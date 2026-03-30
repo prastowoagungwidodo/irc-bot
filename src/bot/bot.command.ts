@@ -7,6 +7,7 @@ import { DatabaseService } from '../database/database.service';
 @Command({ name: 'start', description: 'Start the IRC bot' })
 export class BotCommand extends CommandRunner {
   private readonly nick: string;
+  private readonly master: string;
   constructor(
     private readonly irc: IrcService,
     private readonly ai: AiService,
@@ -15,6 +16,7 @@ export class BotCommand extends CommandRunner {
   ) {
     super();
     this.nick = this.config.get<string>('IRC_NICK', 'SiTi^Oke');
+    this.nick = this.config.get<string>('IRC_ADMIN_NICK', 'Bayangan');
   }
 
   // eslint-disable-next-line @typescript-eslint/require-await
@@ -23,7 +25,7 @@ export class BotCommand extends CommandRunner {
       const msg = event.message;
 
       if (msg === this.nick + ' reset') {
-        if (event.nick === 'Bayangan') {
+        if (event.nick === this.master) {
           this.ai.clearHistory(event.target);
           this.irc.send(
             event.target,
@@ -58,7 +60,7 @@ export class BotCommand extends CommandRunner {
         if (!targetNick) {
           this.irc.send(
             event.target,
-            'Siapa yang mau dicari? contoh: !seen Bayangan',
+            'Siapa yang mau dicari? contoh: !seen mendoan',
           );
           return;
         }
