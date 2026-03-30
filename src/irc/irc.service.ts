@@ -2,6 +2,29 @@ import { Injectable, OnModuleInit, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Client } from 'irc-framework';
 import { IrcProtectionService } from './irc-protection.service';
+import { DatabaseService, UserEventType } from '../database/database.service';
+
+interface IrcMessageEvent {
+  target: string;
+  nick: string;
+  message: string;
+}
+
+interface IrcJoinEvent {
+  channel: string;
+  nick: string;
+}
+
+interface IrcPartEvent {
+  channel: string;
+  nick: string;
+  message?: string;
+}
+
+interface IrcQuitEvent {
+  nick: string;
+  message?: string;
+}
 
 @Injectable()
 export class IrcService implements OnModuleInit {
@@ -12,6 +35,7 @@ export class IrcService implements OnModuleInit {
   constructor(
     private readonly config: ConfigService,
     private readonly protection: IrcProtectionService,
+    private readonly db: DatabaseService,
   ) {}
 
   onModuleInit() {
@@ -38,16 +62,41 @@ export class IrcService implements OnModuleInit {
       this.client.join(this.config.get<string>('IRC_CHANNEL', '#purwokerto'));
     });
 
-    this.client.on('join', (event) => {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-member-access
+    this.client.on('join', (raw: unknown) => {
+      const event = raw as IrcJoinEvent;
       this.handleJoinFlood(event.channel, event.nick);
+      void this.db.logUserEvent(event.channel, event.nick, UserEventType.JOIN);
     });
 
-    this.client.on('message', (event) => {
+    this.client.on('part', (raw: unknown) => {
+      const event = raw as IrcPartEvent;
+      void this.db.logUserEvent(
+        event.channel,
+        event.nick,
+        UserEventType.PART,
+        event.message,
+      );
+    });
+
+    this.client.on('quit', (raw: unknown) => {
+      const event = raw as IrcQuitEvent;
+      void this.db.logUserEvent(
+        '',
+        event.nick,
+        UserEventType.QUIT,
+        event.message,
+      );
+    });
+
+    this.client.on('message', (raw: unknown) => {
+      const event = raw as IrcMessageEvent;
       this.logger.log(`[${event.target}] ${event.nick}: ${event.message}`);
 
       // Skip own messages
       if (event.nick === this.botNick) return;
+
+      // Log to database
+      void this.db.logMessage(event.target, event.nick, event.message);
 
       // Bad words check
       const badWord = this.protection.checkBadWords(event.message);
@@ -71,7 +120,7 @@ export class IrcService implements OnModuleInit {
       }
     });
 
-    this.client.on('error', (err) => {
+    this.client.on('error', (err: unknown) => {
       this.logger.error('IRC error', err);
     });
   }
