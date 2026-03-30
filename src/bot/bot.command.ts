@@ -16,7 +16,7 @@ export class BotCommand extends CommandRunner {
   ) {
     super();
     this.nick = this.config.get<string>('IRC_NICK', 'SiTi^Oke');
-    this.nick = this.config.get<string>('IRC_ADMIN_NICK', 'Bayangan');
+    this.master = this.config.get<string>('IRC_ADMIN_NICK', 'Bayangan');
   }
 
   // eslint-disable-next-line @typescript-eslint/require-await
@@ -65,6 +65,22 @@ export class BotCommand extends CommandRunner {
           return;
         }
         void this.handleSeen(event.target, targetNick);
+        return;
+      }
+
+      // Allow admin to send prompts via private message without bot nick prefix
+      if (event.target === this.nick && event.nick === this.master) {
+        const prompt = msg.trim();
+        if (!prompt) {
+          this.irc.send(event.nick, '???');
+          return;
+        }
+        void this.ai.chat(event.nick, prompt).then((reply) => {
+          const chunks = reply.match(/.{1,400}/g) ?? [];
+          for (const chunk of chunks) {
+            this.irc.send(event.nick, chunk);
+          }
+        });
         return;
       }
 
