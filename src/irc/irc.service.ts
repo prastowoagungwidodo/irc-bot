@@ -32,6 +32,7 @@ export class IrcService implements OnModuleInit {
   private client!: Client;
   private botNick!: string;
   private master!: string;
+  private channelUsers: Map<string, Set<string>> = new Map();
 
   constructor(
     private readonly config: ConfigService,
@@ -64,14 +65,26 @@ export class IrcService implements OnModuleInit {
       this.client.join(this.config.get<string>('IRC_CHANNEL', '#purwokerto'));
     });
 
+    this.client.on(
+      'userlist',
+      (event: { channel: string; users: string[] }) => {
+        this.channelUsers.set(event.channel, new Set(event.users));
+      },
+    );
+
     this.client.on('join', (raw: unknown) => {
       const event = raw as IrcJoinEvent;
+      if (!this.channelUsers.has(event.channel)) {
+        this.channelUsers.set(event.channel, new Set());
+      }
+      this.channelUsers.get(event.channel)!.add(event.nick);
       this.handleJoinFlood(event.channel, event.nick);
       void this.db.logUserEvent(event.channel, event.nick, UserEventType.JOIN);
     });
 
     this.client.on('part', (raw: unknown) => {
       const event = raw as IrcPartEvent;
+      this.channelUsers.get(event.channel)?.delete(event.nick);
       void this.db.logUserEvent(
         event.channel,
         event.nick,
@@ -82,11 +95,30 @@ export class IrcService implements OnModuleInit {
 
     this.client.on('quit', (raw: unknown) => {
       const event = raw as IrcQuitEvent;
+      for (const users of this.channelUsers.values()) {
+        users.delete(event.nick);
+      }
       void this.db.logUserEvent(
         '',
         event.nick,
         UserEventType.QUIT,
         event.message,
+      );
+    });
+
+    this.client.on('nick', (event: { nick: string; new_nick: string }) => {
+      // Update all channels
+      for (const users of this.channelUsers.values()) {
+        if (users.delete(event.nick)) {
+          users.add(event.new_nick);
+        }
+      }
+      // Log nick change to DB
+      void this.db.logUserEvent(
+        '', // channel unknown for global nick change
+        event.nick,
+        UserEventType.NICK,
+        event.new_nick,
       );
     });
 
@@ -148,41 +180,10 @@ export class IrcService implements OnModuleInit {
     }
   }
 
-  async isUserOnline(channel: string, nick: string): Promise<boolean> {
-    return new Promise<boolean>((resolve) => {
-      const nicks: string[] = [];
-      let settled = false;
-
-      const onRaw = (event: { command: string; params: string[] }) => {
-        // RPL_NAMREPLY: collect nicks
-        if (event.command === '353' && event.params[2] === channel) {
-          const names = event.params[3]
-            .split(' ')
-            .map((n) => n.replace(/^[~&@%+]/, ''));
-          nicks.push(...names);
-        }
-        // RPL_ENDOFNAMES: resolve
-        if (event.command === '366' && event.params[1] === channel) {
-          cleanup();
-          resolve(nicks.includes(nick));
-        }
-      };
-
-      const cleanup = () => {
-        if (settled) return;
-        settled = true;
-        this.client.removeListener('raw', onRaw);
-        clearTimeout(timer);
-      };
-
-      const timer = setTimeout(() => {
-        cleanup();
-        resolve(false);
-      }, 5000);
-
-      this.client.on('raw', onRaw);
-      this.client.raw(`NAMES ${channel}`);
-    });
+  isUserOnline(channel: string, nick: string): boolean {
+    const users = this.channelUsers.get(channel);
+    if (!users) return false;
+    return users.has(nick);
   }
 
   private handleJoinFlood(channel: string, nick: string) {

@@ -133,7 +133,7 @@ export class BotCommand extends CommandRunner {
   private async handleSeen(channel: string, nick: string): Promise<void> {
     try {
       // Check if user is currently online in the channel
-      const online = await this.irc.isUserOnline(channel, nick);
+      const online = this.irc.isUserOnline(channel, nick);
       if (online) {
         this.irc.send(channel, `${nick} lagi online di ${channel} sekarang~`);
         return;
@@ -150,9 +150,7 @@ export class BotCommand extends CommandRunner {
           .replace('T', ' ')
           .slice(0, 19);
         const where = seen.lastEvent.channel || '';
-        const reason = seen.lastEvent.reason
-          ? ` (${seen.lastEvent.reason})`
-          : '';
+        let reason = seen.lastEvent.reason ? ` (${seen.lastEvent.reason})` : '';
         let eventTypeText = '';
         let whereText = '';
         switch (seen.lastEvent.event_type) {
@@ -171,6 +169,11 @@ export class BotCommand extends CommandRunner {
           case UserEventType.QUIT:
             eventTypeText = 'keluar';
             whereText = '';
+            break;
+          case UserEventType.NICK:
+            eventTypeText = 'ganti nick';
+            whereText = ' menjadi ' + reason;
+            reason = '';
             break;
           default:
             eventTypeText = 'kelihatan';

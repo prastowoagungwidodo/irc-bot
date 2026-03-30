@@ -12,6 +12,7 @@ export enum UserEventType {
   PART = 'part',
   QUIT = 'quit',
   KICK = 'kick',
+  NICK = 'nick',
 }
 
 export interface ConversationLog {
