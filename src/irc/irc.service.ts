@@ -26,6 +26,20 @@ interface IrcQuitEvent {
   message?: string;
 }
 
+export interface IrcUser {
+  nick: string;
+  ident: string;
+  hostname: string;
+  modes: string[];
+  tags: Record<string, unknown>;
+}
+
+export interface IrcUserListEvent {
+  channel: string;
+  users: IrcUser[];
+  tags: Record<string, unknown>;
+}
+
 @Injectable()
 export class IrcService implements OnModuleInit {
   private readonly logger = new Logger(IrcService.name);
@@ -65,12 +79,13 @@ export class IrcService implements OnModuleInit {
       this.client.join(this.config.get<string>('IRC_CHANNEL', '#purwokerto'));
     });
 
-    this.client.on(
-      'userlist',
-      (event: { channel: string; users: string[] }) => {
-        this.channelUsers.set(event.channel, new Set(event.users));
-      },
-    );
+    this.client.on('userlist', (data: IrcUserListEvent) => {
+      const users = new Set<string>();
+      for (const user of data.users) {
+        users.add(user.nick);
+      }
+      this.channelUsers.set(data.channel, users);
+    });
 
     this.client.on('join', (raw: unknown) => {
       const event = raw as IrcJoinEvent;
