@@ -92,11 +92,13 @@ export class IrcService implements OnModuleInit {
       const event = raw as IrcMessageEvent;
       this.logger.log(`[${event.target}] ${event.nick}: ${event.message}`);
 
-      // Skip own messages
-      if (event.nick === this.botNick) return;
+      // Log to database (only channel messages)
+      if (event.target.startsWith('#')) {
+        void this.db.logMessage(event.target, event.nick, event.message);
+      }
 
-      // Log to database
-      void this.db.logMessage(event.target, event.nick, event.message);
+      // Skip own messages for further processing
+      if (event.nick === this.botNick) return;
 
       // Bad words check
       const badWord = this.protection.checkBadWords(event.message);
