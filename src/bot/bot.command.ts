@@ -75,19 +75,21 @@ export class BotCommand extends CommandRunner {
           this.irc.send(event.nick, '???');
           return;
         }
-        void this.ai.chat(event.nick, 'Admin: ' + prompt).then((reply) => {
-          const chunks = reply.match(/.{1,400}/g) ?? [];
-          for (const chunk of chunks) {
-            this.irc.send(event.nick, chunk);
-          }
-        });
+        void this.ai
+          .chat(event.nick, event.nick + ' (Admin): ' + prompt)
+          .then((reply) => {
+            const chunks = reply.match(/.{1,400}/g) ?? [];
+            for (const chunk of chunks) {
+              this.irc.send(event.nick, chunk);
+            }
+          });
         return;
       }
 
-      // Respond to messages prefixed with bot Nick (e.g., "SiTi^Oke ")
-      if (!msg.startsWith(this.nick)) return;
+      // Only respond to messages containing bot's nick
+      if (!msg.includes(this.nick)) return;
 
-      const prompt = msg.slice(this.nick.length).trim();
+      const prompt = msg.trim();
       if (!prompt) {
         this.irc.send(event.target, '???');
         return;
@@ -150,7 +152,10 @@ export class BotCommand extends CommandRunner {
           .replace('T', ' ')
           .slice(0, 19);
         const where = seen.lastEvent.channel || '';
-        let reason = seen.lastEvent.reason ? ` (${seen.lastEvent.reason})` : '';
+        let reason = seen.lastEvent.reason || '';
+        if (seen.lastEvent.event_type !== UserEventType.NICK) {
+          reason = ` (${reason.trim()})`;
+        }
         let eventTypeText = '';
         let whereText = '';
         switch (seen.lastEvent.event_type) {
@@ -172,7 +177,7 @@ export class BotCommand extends CommandRunner {
             break;
           case UserEventType.NICK:
             eventTypeText = 'ganti nick';
-            whereText = ' menjadi ' + reason;
+            whereText = ' jadi ' + reason;
             reason = '';
             break;
           default:

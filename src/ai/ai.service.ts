@@ -32,15 +32,12 @@ export class AiService {
       this.config.get<string>('AI_MAX_HISTORY', '100'),
       10,
     );
-    const systemPromptContent = this.config.get<string>(
-      'AI_SYSTEM_PROMPT',
-      'Kamu adalah bot IRC yang membantu. Buat jawaban singkat.',
-    );
     this.systemPrompt = {
       role: 'system',
-      content:
-        systemPromptContent +
-        '. Setiap prompt memiliki prefix nickname (contoh: Bayangan: halo) jadi kamu bisa mengidentifikasi siapa yang berbicara, gender dan mungkin bisa menentukan sapaan yang tepat misal: Mas, Mba, Kang, Yu, Om, Tante, Dek, dll.',
+      content: this.config.get<string>(
+        'AI_SYSTEM_PROMPT',
+        'You are a helpful IRC bot. Keep responses concise.',
+      ),
     };
   }
 
